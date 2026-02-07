@@ -165,6 +165,24 @@ const fetchYouTubeFallbackText = async (url, reason) => {
 
   try {
     await delay(300, 800);
+    let description = '';
+    try {
+      const videoResponse = await fetch(url, {
+        headers: {
+          'User-Agent': getRandomUserAgent()
+        }
+      });
+      if (videoResponse.ok) {
+        const html = await videoResponse.text();
+        const match = html.match(/<meta\s+name="description"\s+content="([^"]+)"/i);
+        if (match && match[1]) {
+          description = match[1];
+        }
+      }
+    } catch (error) {
+      console.warn('[YouTube Transcript] Description fetch failed:', error.message);
+    }
+
     const response = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`, {
       headers: {
         'User-Agent': getRandomUserAgent()
@@ -179,6 +197,10 @@ const fetchYouTubeFallbackText = async (url, reason) => {
       if (data?.author_name) {
         fallbackLines.push(`Channel: ${data.author_name}`);
       }
+    }
+
+    if (description) {
+      fallbackLines.push(`Description: ${description}`);
     }
   } catch (error) {
     console.warn('[YouTube Transcript] Fallback metadata unavailable:', error.message);
