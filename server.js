@@ -35,6 +35,16 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
+const allowedOrigins = new Set([
+  'https://www.nextdoc.in',
+  'https://nextdoc.in',
+  'http://localhost:3000'
+]);
+
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.add(process.env.FRONTEND_URL.replace(/\/$/, ''));
+}
+
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) {
@@ -43,12 +53,8 @@ app.use(cors({
     }
 
     const normalizedOrigin = origin.replace(/\/$/, '');
-    const frontendUrl = process.env.FRONTEND_URL
-      ? process.env.FRONTEND_URL.replace(/\/$/, '')
-      : null;
-    const isLocalhost = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalizedOrigin);
 
-    if (isLocalhost || (frontendUrl && normalizedOrigin === frontendUrl)) {
+    if (allowedOrigins.has(normalizedOrigin)) {
       callback(null, true);
       return;
     }
