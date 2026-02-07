@@ -7,7 +7,7 @@ import puppeteer from 'puppeteer-core';
  */
 
 const MAX_CONTENT_LENGTH = 50000; // Limit scraped content to 50KB
-const REQUEST_TIMEOUT = 20000; // 20 seconds
+const REQUEST_TIMEOUT = 60000; // 60 seconds
 const MAX_ATTEMPTS = 2;
 const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
@@ -81,6 +81,15 @@ export const scrapeUrl = async (url) => {
       const page = await browser.newPage();
       await page.setUserAgent(userAgent);
       page.setDefaultNavigationTimeout(REQUEST_TIMEOUT);
+      await page.setRequestInterception(true);
+      page.on('request', (request) => {
+        const resourceType = request.resourceType();
+        if (resourceType === 'image' || resourceType === 'font') {
+          request.abort();
+          return;
+        }
+        request.continue();
+      });
 
       const response = await page.goto(url, {
         waitUntil: 'networkidle2',
@@ -97,7 +106,8 @@ export const scrapeUrl = async (url) => {
         throw new Error('HTTP 403: Access denied');
       }
 
-      await page.waitForTimeout(500);
+      await page.waitForSelector('body', { timeout: 15000 });
+      await page.waitForTimeout(1500);
 
       const rawText = await page.evaluate(() => {
         const elements = document.querySelectorAll('script, style, noscript');
@@ -128,7 +138,9 @@ export const scrapeUrl = async (url) => {
       console.error(`[Scraping] Attempt ${attempt} failed: ${error.message}`);
 
       if (attempt < MAX_ATTEMPTS) {
-        console.log('[Scraping] Retrying with new user-agent...');
+        const backoffMs = Math.min(8000, 1000 * (2 ** (attempt - 1)));
+        console.log(`[Scraping] Retrying with new user-agent after ${backoffMs}ms...`);
+        await delay(backoffMs, backoffMs + 500);
         continue;
       }
     } finally {
