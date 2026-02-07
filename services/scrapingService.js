@@ -1,4 +1,5 @@
-import puppeteer from 'puppeteer';
+import chromium from '@sparticuz/chromium';
+import puppeteer from 'puppeteer-core';
 
 /**
  * Web Scraping Service
@@ -68,9 +69,13 @@ export const scrapeUrl = async (url) => {
       await delay();
       console.log(`[Scraping] Attempt ${attempt}/${MAX_ATTEMPTS} | URL: ${url}`);
 
+      const executablePath = await chromium.executablePath();
+      const resolvedExecutablePath = executablePath || process.env.PUPPETEER_EXECUTABLE_PATH;
+
       browser = await puppeteer.launch({
-        headless: 'new',
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        args: resolvedExecutablePath ? chromium.args : ['--no-sandbox', '--disable-setuid-sandbox'],
+        executablePath: resolvedExecutablePath || undefined,
+        headless: resolvedExecutablePath ? chromium.headless : 'new'
       });
 
       const page = await browser.newPage();
