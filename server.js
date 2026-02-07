@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { connectDB } from './config/database.js';
@@ -17,10 +18,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Load environment variables
 dotenv.config();
 
-// Setup Google Cloud credentials if credentials file path is provided
-if (process.env.GOOGLE_APPLICATION_CREDENTIALS && !process.env.GOOGLE_APPLICATION_CREDENTIALS.startsWith('/')) {
-  const credentialsPath = path.join(__dirname, process.env.GOOGLE_APPLICATION_CREDENTIALS);
+// Setup Google Cloud credentials from JSON env var (Render-friendly)
+if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+  const credentialsPath = '/tmp/gcp-key.json';
+  fs.writeFileSync(credentialsPath, process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON, 'utf8');
   process.env.GOOGLE_APPLICATION_CREDENTIALS = credentialsPath;
+  console.log(`✅ Google credentials written to ${credentialsPath}`);
 }
 
 // Validate required environment variables
