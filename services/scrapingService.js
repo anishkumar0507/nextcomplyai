@@ -1,5 +1,10 @@
 import chromium from '@sparticuz/chromium';
-import puppeteer from 'puppeteer-core';
+import puppeteerExtra from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import puppeteerCore from 'puppeteer-core';
+
+puppeteerExtra.use(StealthPlugin());
+const puppeteer = puppeteerExtra.addExtra(puppeteerCore);
 
 /**
  * Web Scraping Service
@@ -80,6 +85,11 @@ export const scrapeUrl = async (url) => {
 
       const page = await browser.newPage();
       await page.setUserAgent(userAgent);
+      await page.setExtraHTTPHeaders({
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Upgrade-Insecure-Requests': '1'
+      });
       page.setDefaultNavigationTimeout(REQUEST_TIMEOUT);
       await page.setRequestInterception(true);
       page.on('request', (request) => {

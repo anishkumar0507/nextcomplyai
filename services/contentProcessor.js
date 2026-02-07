@@ -155,6 +155,41 @@ const fetchYouTubeTranscript = async (url) => {
   }
 };
 
+const fetchYouTubeFallbackText = async (url, reason) => {
+  const fallbackLines = [];
+  fallbackLines.push('YouTube transcript unavailable.');
+  if (reason) {
+    fallbackLines.push(`Reason: ${reason}`);
+  }
+  fallbackLines.push(`Video URL: ${url}`);
+
+  try {
+    await delay(300, 800);
+    const response = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`, {
+      headers: {
+        'User-Agent': getRandomUserAgent()
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data?.title) {
+        fallbackLines.push(`Title: ${data.title}`);
+      }
+      if (data?.author_name) {
+        fallbackLines.push(`Channel: ${data.author_name}`);
+      }
+    }
+  } catch (error) {
+    console.warn('[YouTube Transcript] Fallback metadata unavailable:', error.message);
+  }
+
+  const fallbackText = fallbackLines.join(' ');
+  return fallbackText.length < 60
+    ? `${fallbackText} Please provide a summary or upload a file for review.`
+    : fallbackText;
+};
+
 const validateGeminiResult = (result) => {
   const requiredKeys = [
     'score',
@@ -272,7 +307,14 @@ const processUrl = async ({ url, category, analysisMode }) => {
   const urlType = detectUrlContentType(url);
 
   if (isYouTubeUrl(url)) {
-    const transcriptText = await fetchYouTubeTranscript(url);
+    let transcriptText = '';
+    try {
+      transcriptText = await fetchYouTubeTranscript(url);
+    } catch (error) {
+      console.warn('[YouTube Transcript] Falling back to metadata:', error.message);
+      transcriptText = await fetchYouTubeFallbackText(url, error.message);
+    }
+
     const auditResult = await analyzeWithGemini({
       content: transcriptText,
       inputType: 'video',
@@ -318,7 +360,13 @@ const processUrl = async ({ url, category, analysisMode }) => {
     });
   }
 
-  const { extractedText } = await scrapeUrl(url);
+  let extractedText = '';
+  try {
+    ({ extractedText } = await scrapeUrl(url));
+  } catch (error) {
+    console.warn('[Scraping] Falling back to placeholder text:', error.message);
+    extractedText = `Content could not be extracted due to access restrictions or timeouts. URL: ${url}. Please provide text or upload a file for review.`;
+  }
   const auditResult = await analyzeWithGemini({
     content: extractedText,
     inputType: 'url',
